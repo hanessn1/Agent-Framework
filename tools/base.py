@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 class BaseTool(ABC):
     def __init__(self, name: str, description: str, parameters: dict):
         self.name = name
-        self.desciption = description
+        self.description = description
         self.parameters = parameters
 
     def schema(self):
@@ -12,7 +12,7 @@ class BaseTool(ABC):
             "type": "function",
             "function": {
                 "name": self.name,
-                "description": self.desciption,
+                "description": self.description,
                 "parameters": self.parameters,
             },
         }
@@ -20,3 +20,4 @@ class BaseTool(ABC):
     @abstractmethod
     def execute(self, **kwargs):
         pass
+

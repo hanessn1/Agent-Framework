@@ -17,5 +17,6 @@ class SubtractTool(BaseTool):
             },
         )
 
-    def execute(self,a,b):
-        return a-b
+    def execute(self, a, b, **kwargs):
+        return a - b
+

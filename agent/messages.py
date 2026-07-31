@@ -1,4 +1,8 @@
 from typing import List, Dict, Any
+from agent.response import ToolCall
+import logging
+
+logger=logging.getLogger(__name__)
 
 
 class MessageHistory:
@@ -29,13 +33,20 @@ class MessageHistory:
     def add_assistant(self, content: str):
         self.messages.append({"role": "assistant", "content": content})
 
-    def add_assistant_tool_call(self, tool_call):
-        self.messages.append({"role": "assistant", "tool_calls": tool_call})
+    def add_assistant_tool_call(self, tool_calls: List[ToolCall], content: str):
+        tool_call_json={
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [tc.to_dict() for tc in tool_calls],
+        }
+        logger.debug("Adding assistant tool call request...")
+        logger.debug(tool_call_json)
+        self.messages.append(tool_call_json)
 
     def add_tool_result(self, tool_call_id: str, content: str):
-        self.messages.append(
-            {"role": "tool", "tool_call_id": tool_call_id, "content": content}
-        )
+        tool_result_json={"role": "tool", "tool_call_id": tool_call_id, "content": content}
+        logger.debug(f"Tool result json message: {tool_result_json}")
+        self.messages.append(tool_result_json)
 
     def __iter__(self):
         return iter(self.messages)
