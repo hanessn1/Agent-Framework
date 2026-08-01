@@ -22,13 +22,13 @@ class ChatLLM:
             "model": self.model,
             "messages": messages,
             "stream": False,
+            "reasoning_effort": REASONING_EFFORT
         }
         if tools:
             kwargs["tools"] = tools
-        kwargs["reasoning_effort"] = REASONING_EFFORT
 
         response = self.client.chat.create(**kwargs)
-        logger.debug(f"Response from LLM: {response}")
+        logger.trace(f"Response from LLM: {response}")
 
         return self._parse(response)
 
@@ -37,10 +37,10 @@ class ChatLLM:
             "model": self.model,
             "messages": messages,
             "stream": True,
+            "reasoning_effort": REASONING_EFFORT
         }
         if tools:
             kwargs["tools"] = tools
-        kwargs["reasoning_effort"] = REASONING_EFFORT
 
         raw_stream = self.client.chat.create(**kwargs)
         logger.debug(f"Starting llm stream...")
@@ -49,12 +49,12 @@ class ChatLLM:
         finish_reason = None
 
         for chunk in raw_stream:
-            # logger.debug(f"### Chunk: {chunk}")
+            logger.trace(f"### Chunk: {chunk}")
             if not chunk.choices:
                 continue
 
             delta = chunk.choices[0].delta
-            # logger.debug(f"Chunk delta: {delta}")
+            logger.trace(f"Chunk delta: {delta}")
 
             delta_content = None
             if delta.content:
@@ -62,7 +62,7 @@ class ChatLLM:
                 content_parts.append(delta_content)
 
             if delta.tool_calls:
-                # logger.debug(f"Chunk delta tool call: {delta.tool_calls}")
+                logger.trace(f"Chunk delta tool call: {delta.tool_calls}")
                 for tc in delta.tool_calls:
                     idx = tc.index
                     if idx not in tool_calls_map:
@@ -82,11 +82,11 @@ class ChatLLM:
             if chunk.choices[0].finish_reason:
                 finish_reason = chunk.choices[0].finish_reason
 
-            logger.debug(f"Yielding delta content: {delta_content}")
+            logger.trace(f"Yielding delta content: {delta_content}")
             yield (delta_content, None)
 
         reconstructed_tool_calls = []
-        logger.debug(f"Tool calls map: {tool_calls_map}")
+        logger.trace(f"Tool calls map: {tool_calls_map}")
         for idx in sorted(tool_calls_map.keys()):
             tc_data = tool_calls_map[idx]
             reconstructed_tool_calls.append(
@@ -99,26 +99,26 @@ class ChatLLM:
                 )
             )
 
+        logger.trace(f"Stream completed. Full content: {''.join(content_parts)}")
         agentResponse = AgentResponse(
             content="".join(content_parts),
             tool_calls=reconstructed_tool_calls,
             finish_reason=finish_reason,
             raw=raw_stream,
         )
-        logger.debug(f"Yielding agent response: {agentResponse}")
 
         yield (None, agentResponse)
 
     def _parse(self, response):
         message = response.choices[0].message
-        logger.debug(f"Parsed message object: {message}")
+        logger.trace(f"Parsed message object: {message}")
 
         tool_calls = []
         if message.tool_calls:
-            logger.debug(f"Found tool calls...")
+            logger.trace(f"Found tool calls...")
             for tc in message.tool_calls:
-                logger.debug(f"### Tool call ### ")
-                logger.debug(tc)
+                logger.trace(f"### Tool call ### ")
+                logger.trace(tc)
                 fn_name = tc.function.name
                 fn_args = tc.function.arguments
                 tool_calls.append(
@@ -134,5 +134,5 @@ class ChatLLM:
             finish_reason=response.choices[0].finish_reason,
             raw=response,
         )
-        logger.debug(f"Created agent response: {agentResponse}")
+        logger.trace(f"Created agent response: {agentResponse}")
         return agentResponse

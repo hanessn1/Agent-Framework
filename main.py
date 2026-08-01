@@ -8,8 +8,11 @@ from tools.builtin.subtract import SubtractTool
 from tools.builtin.time import TimeTool
 from tools.builtin.list_files import ListFilesTool
 from tools.builtin.read_file import ReadFileTool
+from planner.planner import Planner
+from planner.executor import Executor
 from logger import setup_logging
 
+setup_logging()
 
 registry = ToolRegistry([
     AddTool(),
@@ -20,21 +23,39 @@ registry = ToolRegistry([
     ReadFileTool()
 ])
 
-SYSTEM_PROMPT="""You are a helpful, versatile AI assistant equipped with tools.
-- When asked a question, always inspect and verify facts using your available tools before answering.
+SYSTEM_PROMPT = """You are a helpful, versatile AI assistant equipped with tools.
+- When asked a question, always inspect and verify facts using your available tools.
 - If a tool call fails or returns an error, analyze the error message in your history, self-correct your parameters, and try again.
 - Provide clear and accurate responses based on observed tool results.
 """
 
 history = MessageHistory(SYSTEM_PROMPT)
+llm = ChatLLM()
 
 agent = Agent(
-    llm=ChatLLM(),
+    llm=llm,
     history=history,
     tools=registry,
     stream=False,
 )
 
+planner = Planner(llm=llm)
+executor = Executor(agent=agent)
+
+
+def run_with_planning(user_goal: str):
+    # Generate plan
+    plan = planner.create_plan(user_goal)
+
+    # Execute plan
+    return executor.execute_plan(plan)
+
+
 if __name__ == "__main__":
-    setup_logging()
-    agent.run("Which files mentions kubernetes in the current directory?")
+    # Standard single query (no planning needed for simple questions)
+    # agent.run(
+    #     "Do a search inside this directory. tell me what do you find. how many python files are there?"
+    # )
+
+    # Complex goal using Planning & Execution!
+    run_with_planning("What types of files are present in this directory?")

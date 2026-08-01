@@ -1,43 +1,31 @@
 import logging
 import sys
-import os
-from datetime import datetime
 from config import LOG_LEVEL
 
-
-class ColoredFormatter(logging.Formatter):
-    COLORS = {
-        "DEBUG": "\x1b[36m",
-        "INFO": "\x1b[32m",
-        "WARNING": "\x1b[33m",
-        "ERROR": "\x1b[31m",
-        "CRITICAL": "\x1b[31;1m",
-    }
-
-    def format(self, record):
-        color = self.COLORS.get(record.levelname, "")
-        record.levelname = f"{color}{record.levelname}\x1b[0m"
-        return super().format(record)
+TRACE_LEVEL_NUM = 5
+logging.addLevelName(TRACE_LEVEL_NUM, "TRACE")
 
 
-def setup_logging(level=LOG_LEVEL, log_to_file=True, log_filename="agent.log"):
-    """Sets up standardized logging across the framework."""
+def trace(self, message, *args, **kws):
+    if self.isEnabledFor(TRACE_LEVEL_NUM):
+        self._log(TRACE_LEVEL_NUM, message, args, **kws)
+
+
+logging.Logger.trace = trace
+
+
+def setup_logging(level=LOG_LEVEL, log_filename="agent.log"):
+    """Sets up logging to write ONLY to agent.log."""
     fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     date_fmt = "%Y-%m-%d %H:%M:%S"
 
-    # Terminal handler (with colors)
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(ColoredFormatter(fmt, datefmt=date_fmt))
-    handlers = [console_handler]
+    # writes directly to agent.log without printing to console
+    file_handler = logging.FileHandler(log_filename, mode="w", encoding="utf-8")
+    file_handler.setFormatter(logging.Formatter(fmt, datefmt=date_fmt))
 
-    # File handler (plain text, no color codes)
-    if log_to_file:
-        file_handler = logging.FileHandler(log_filename, mode="w", encoding="utf-8")
-        file_handler.setFormatter(logging.Formatter(fmt, datefmt=date_fmt))
-        handlers.append(file_handler)
-
-    logging.basicConfig(level=level, handlers=handlers)
-
+    # pre-existing default handlers are overwritten
+    logging.basicConfig(level=level, handlers=[file_handler], force=True)
+    
     # Mute 3rd-party library loggers
     third_party_loggers = [
         "httpx",

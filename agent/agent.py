@@ -3,7 +3,7 @@ from agent.response import AgentResponse
 from agent.messages import MessageHistory
 from llm.chat import ChatLLM
 from typing import List
-from config import MAX_STEPS
+from config import MAX_STEPS,TOOL_CALL_VISIBILITY
 import logging
 
 logger=logging.getLogger(__name__)
@@ -33,12 +33,16 @@ class Agent:
             response = self.chat()
 
             if response.tool_calls:
-                logger.debug("Tool call found in agent response...")
+                logger.trace("Tool call found in agent response...")
+                if response.content:
+                    print(response.content)
+                    logger.info(f"Assistant: {response.content}")
                 self.handle_tool_calls(response)
                 continue
 
             self.history.add_assistant(response.content)
             print(response.content)
+            logger.info(f"Assistant: {response.content}")
             return response.content
 
     def _run_stream(self, query: str):
@@ -51,12 +55,17 @@ class Agent:
             schemas = self.tools.schemas()
             final_response = None
 
+            intermediate_response=""
             for delta_text, response in self.llm.stream(messages=self.history.messages, tools=schemas):
                 if delta_text:
                     print(delta_text, end="", flush=True)
+                    intermediate_response+=delta_text
                 if response is not None:
                     final_response = response
 
+            if intermediate_response:
+                print()
+                logger.info(f"Assistance: {intermediate_response}")
             if final_response and final_response.tool_calls:
                 self.handle_tool_calls(final_response)
                 continue
@@ -65,12 +74,13 @@ class Agent:
                 self.history.add_assistant(final_response.content)
             break
 
+        logger.info(f"Assistant: {final_response.content}")
         return final_response
 
     def chat(self):
         """LLM"""
         schemas = self.tools.schemas()
-        # logger.debug(f"Tool calls schema list: {schemas}",)
+        logger.trace(f"Tool calls schema list: {schemas}")
         return self.llm.complete(messages=self.history.messages, tools=schemas, stream=False)
 
     def handle_tool_calls(self, response: AgentResponse):
@@ -86,7 +96,13 @@ class Agent:
             if tool_call.function.arguments
             else {}
         )
+
+        if TOOL_CALL_VISIBILITY:
+            print(f"Calling tool: `{tool_call.function.name}` with arguments: {tool_call.function.arguments}")
+        logger.info(f"Calling tool: `{tool_call.function.name}` with arguments: {tool_call.function.arguments}")
         result=self.tools.execute(tool_call.function.name, **args)
-        logger.debug(f"Tool called: {tool_call}")
-        logger.debug(f"Tool call result: {result}")
+
+        if TOOL_CALL_VISIBILITY:
+            print(f"Tool call result: {result}")
+        logger.info(f"Tool call result: {result}")
         return result

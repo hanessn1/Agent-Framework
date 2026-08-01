@@ -39,13 +39,13 @@ class MessageHistory:
             "content": content,
             "tool_calls": [tc.to_dict() for tc in tool_calls],
         }
-        logger.debug("Adding assistant tool call request...")
-        logger.debug(tool_call_json)
+        logger.trace("Adding assistant tool call request...")
+        logger.trace(tool_call_json)
         self.messages.append(tool_call_json)
 
     def add_tool_result(self, tool_call_id: str, content: str):
         tool_result_json={"role": "tool", "tool_call_id": tool_call_id, "content": content}
-        logger.debug(f"Tool result json message: {tool_result_json}")
+        logger.trace(f"Tool result json message: {tool_result_json}")
         self.messages.append(tool_result_json)
 
     def __iter__(self):
