@@ -3,6 +3,7 @@ from agent.response import AgentResponse
 from agent.messages import MessageHistory
 from llm.chat import ChatLLM
 from typing import List
+from config import MAX_STEPS
 import logging
 
 logger=logging.getLogger(__name__)
@@ -26,7 +27,9 @@ class Agent:
     def _run_sync(self, query: str):
         self.history.add_user(query)
 
-        while True:
+        steps=0
+        while steps<MAX_STEPS:
+            steps+=1
             response = self.chat()
 
             if response.tool_calls:
@@ -40,9 +43,11 @@ class Agent:
 
     def _run_stream(self, query: str):
         self.history.add_user(query)
-
         final_response = None
-        while True:
+        steps=0
+
+        while steps<MAX_STEPS:
+            steps+=1
             schemas = self.tools.schemas()
             final_response = None
 

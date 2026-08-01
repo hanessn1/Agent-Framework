@@ -32,7 +32,7 @@ def setup_logging(level=LOG_LEVEL, log_to_file=True, log_filename="agent.log"):
 
     # File handler (plain text, no color codes)
     if log_to_file:
-        file_handler = logging.FileHandler(log_filename, mode="a", encoding="utf-8")
+        file_handler = logging.FileHandler(log_filename, mode="w", encoding="utf-8")
         file_handler.setFormatter(logging.Formatter(fmt, datefmt=date_fmt))
         handlers.append(file_handler)
 

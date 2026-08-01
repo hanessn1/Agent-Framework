@@ -6,6 +6,8 @@ from tools.builtin.add import AddTool
 from tools.builtin.multiply import MultiplyTool
 from tools.builtin.subtract import SubtractTool
 from tools.builtin.time import TimeTool
+from tools.builtin.list_files import ListFilesTool
+from tools.builtin.read_file import ReadFileTool
 from logger import setup_logging
 
 
@@ -14,17 +16,25 @@ registry = ToolRegistry([
     MultiplyTool(),
     SubtractTool(),
     TimeTool(),
+    ListFilesTool(),
+    ReadFileTool()
 ])
 
-history = MessageHistory("You are a helpful assistant. You use tools when appropriate.")
+SYSTEM_PROMPT="""You are a helpful, versatile AI assistant equipped with tools.
+- When asked a question, always inspect and verify facts using your available tools before answering.
+- If a tool call fails or returns an error, analyze the error message in your history, self-correct your parameters, and try again.
+- Provide clear and accurate responses based on observed tool results.
+"""
+
+history = MessageHistory(SYSTEM_PROMPT)
 
 agent = Agent(
     llm=ChatLLM(),
     history=history,
     tools=registry,
-    stream=True,
+    stream=False,
 )
 
 if __name__ == "__main__":
     setup_logging()
-    agent.run("What is the current time? and what is 238*7234?")
+    agent.run("Which files mentions kubernetes in the current directory?")
