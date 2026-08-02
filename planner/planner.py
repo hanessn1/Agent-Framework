@@ -1,5 +1,6 @@
 from llm.chat import ChatLLM
 from planner.plan import Plan, TaskStep
+from agent.messages import MessageHistory
 import logging
 import json
 
@@ -18,6 +19,7 @@ class Planner:
             "Your job is to deconstruct user goals into a logical sequence of step-by-step instructions. "
             "Respond ONLY in valid JSON matching the requested schema."
         )
+        history=MessageHistory(system_prompt=system_prompt)
 
         user_prompt = f"""Deconstruct the following goal into a sequence of steps.
 
@@ -32,13 +34,10 @@ Respond ONLY with a valid JSON object matching this schema:
     ]
 }}"""
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+        history.add_user(user_prompt)
 
         response = self.llm.complete(
-            messages=messages,
+            messages=history,
             stream=False
         )
 

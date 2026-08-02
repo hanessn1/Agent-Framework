@@ -8,6 +8,7 @@ from tools.builtin.subtract import SubtractTool
 from tools.builtin.time import TimeTool
 from tools.builtin.list_files import ListFilesTool
 from tools.builtin.read_file import ReadFileTool
+from tools.builtin.get_pwd import PwdTool
 from planner.planner import Planner
 from planner.executor import Executor
 from logger import setup_logging
@@ -19,6 +20,7 @@ registry = ToolRegistry([
     MultiplyTool(),
     SubtractTool(),
     TimeTool(),
+    PwdTool(),
     ListFilesTool(),
     ReadFileTool()
 ])
@@ -36,7 +38,7 @@ agent = Agent(
     llm=llm,
     history=history,
     tools=registry,
-    stream=False,
+    stream=True,
 )
 
 planner = Planner(llm=llm)
@@ -53,9 +55,9 @@ def run_with_planning(user_goal: str):
 
 if __name__ == "__main__":
     # Standard single query (no planning needed for simple questions)
-    # agent.run(
-    #     "Do a search inside this directory. tell me what do you find. how many python files are there?"
-    # )
+    agent.run(
+        "Do a search inside this directory. tell me what do you find. how many python files are there?"
+    )
 
     # Complex goal using Planning & Execution!
-    run_with_planning("What types of files are present in this directory?")
+    # run_with_planning("How many python files are here? consider any folders which might have python files too.")

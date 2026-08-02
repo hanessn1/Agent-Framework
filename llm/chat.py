@@ -1,6 +1,7 @@
 from llm.client import LLMClient
 from config import MODEL, REASONING_EFFORT
 from agent.response import AgentResponse, ToolCall, FunctionCall
+from agent.messages import MessageHistory
 import logging
 
 logger=logging.getLogger(__name__)
@@ -12,6 +13,9 @@ class ChatLLM:
         self.model = MODEL
 
     def complete(self, messages, tools=None, stream=False):
+        if isinstance(messages,MessageHistory):
+            messages=messages.history
+        
         if stream:
             return self.stream(messages, tools)
 

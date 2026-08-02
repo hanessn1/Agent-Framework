@@ -3,15 +3,21 @@ from agent.response import AgentResponse
 from agent.messages import MessageHistory
 from llm.chat import ChatLLM
 from typing import List
-from config import MAX_STEPS,TOOL_CALL_VISIBILITY
+from config import MAX_STEPS, TOOL_CALL_VISIBILITY
 import logging
 
-logger=logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class Agent:
 
-    def __init__(self, llm: ChatLLM, history: MessageHistory, tools:List=None, stream:bool=False):
+    def __init__(
+        self,
+        llm: ChatLLM,
+        history: MessageHistory,
+        tools: List = None,
+        stream: bool = False,
+    ):
         self.llm = llm
         self.history = history
         self.tools = tools
@@ -27,9 +33,9 @@ class Agent:
     def _run_sync(self, query: str):
         self.history.add_user(query)
 
-        steps=0
-        while steps<MAX_STEPS:
-            steps+=1
+        steps = 0
+        while steps < MAX_STEPS:
+            steps += 1
             response = self.chat()
 
             if response.tool_calls:
@@ -48,18 +54,20 @@ class Agent:
     def _run_stream(self, query: str):
         self.history.add_user(query)
         final_response = None
-        steps=0
+        steps = 0
 
-        while steps<MAX_STEPS:
-            steps+=1
+        while steps < MAX_STEPS:
+            steps += 1
             schemas = self.tools.schemas()
             final_response = None
 
-            intermediate_response=""
-            for delta_text, response in self.llm.stream(messages=self.history.messages, tools=schemas):
+            intermediate_response = ""
+            for delta_text, response in self.llm.stream(
+                messages=self.history.get_messages_for_llm(), tools=schemas
+            ):
                 if delta_text:
                     print(delta_text, end="", flush=True)
-                    intermediate_response+=delta_text
+                    intermediate_response += delta_text
                 if response is not None:
                     final_response = response
 
@@ -81,10 +89,14 @@ class Agent:
         """LLM"""
         schemas = self.tools.schemas()
         logger.trace(f"Tool calls schema list: {schemas}")
-        return self.llm.complete(messages=self.history.messages, tools=schemas, stream=False)
+        return self.llm.complete(
+            messages=self.history.get_messages_for_llm(), tools=schemas, stream=False
+        )
 
     def handle_tool_calls(self, response: AgentResponse):
-        self.history.add_assistant_tool_call(response.tool_calls, content=response.content)
+        self.history.add_assistant_tool_call(
+            response.tool_calls, content=response.content
+        )
 
         for tool_call in response.tool_calls:
             result = self.call_tool(tool_call)
@@ -98,9 +110,13 @@ class Agent:
         )
 
         if TOOL_CALL_VISIBILITY:
-            print(f"Calling tool: `{tool_call.function.name}` with arguments: {tool_call.function.arguments}")
-        logger.info(f"Calling tool: `{tool_call.function.name}` with arguments: {tool_call.function.arguments}")
-        result=self.tools.execute(tool_call.function.name, **args)
+            print(
+                f"Calling tool: `{tool_call.function.name}` with arguments: {tool_call.function.arguments}"
+            )
+        logger.info(
+            f"Calling tool: `{tool_call.function.name}` with arguments: {tool_call.function.arguments}"
+        )
+        result = self.tools.execute(tool_call.function.name, **args)
 
         if TOOL_CALL_VISIBILITY:
             print(f"Tool call result: {result}")

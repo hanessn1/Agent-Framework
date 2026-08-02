@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from agent.response import ToolCall
 import logging
 
-logger=logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class MessageHistory:
@@ -11,11 +11,23 @@ class MessageHistory:
     Responsible only for storing and manipulating messages.
     """
 
-    def __init__(self, system_prompt: str = ""):
+    def __init__(self, system_prompt: str = "", max_working_mesages: int = 20):
         self.messages: List[Dict[str, Any]] = []
+        self.max_working_messages = max_working_mesages
 
         if system_prompt:
             self.add_system(system_prompt)
+
+    def get_messages_for_llm(self):
+        """Dynamically computes the sliding window before every LLM call."""
+        if len(self.messages) <= self.max_working_messages + 1:
+            return self.messages
+
+        # Preserve system prompt and take last N messages
+        logger.debug(f"History length: `{len(self.messages)}` exceeded capacity.")
+        system_msg = self.messages[0]
+        recent_msgs = self.messages[-self.max_working_messages :]
+        return [system_msg] + recent_msgs
 
     @property
     def history(self):
@@ -34,7 +46,7 @@ class MessageHistory:
         self.messages.append({"role": "assistant", "content": content})
 
     def add_assistant_tool_call(self, tool_calls: List[ToolCall], content: str):
-        tool_call_json={
+        tool_call_json = {
             "role": "assistant",
             "content": content,
             "tool_calls": [tc.to_dict() for tc in tool_calls],
@@ -44,7 +56,11 @@ class MessageHistory:
         self.messages.append(tool_call_json)
 
     def add_tool_result(self, tool_call_id: str, content: str):
-        tool_result_json={"role": "tool", "tool_call_id": tool_call_id, "content": content}
+        tool_result_json = {
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "content": content,
+        }
         logger.trace(f"Tool result json message: {tool_result_json}")
         self.messages.append(tool_result_json)
 
