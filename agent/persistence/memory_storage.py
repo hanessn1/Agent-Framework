@@ -3,10 +3,10 @@ from .base import BasePersistence
 
 
 class MemoryPersistence(BasePersistence):
-    """Default: Pure in-memory (No-op storage)."""
+	"""Default: Pure in-memory (No-op storage)."""
 
-    def save(self, messages: List[Dict[str, Any]]):
-        pass
+	def save(self, messages: List[Dict[str, Any]]):
+		pass
 
-    def load(self):
-        return []
+	def load(self):
+		return []

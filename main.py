@@ -17,13 +17,13 @@ from logger import setup_logging
 setup_logging()
 
 registry = ToolRegistry([
-    AddTool(),
-    MultiplyTool(),
-    SubtractTool(),
-    TimeTool(),
-    PwdTool(),
-    ListFilesTool(),
-    ReadFileTool()
+	AddTool(),
+	MultiplyTool(),
+	SubtractTool(),
+	TimeTool(),
+	PwdTool(),
+	ListFilesTool(),
+	ReadFileTool()
 ])
 
 SYSTEM_PROMPT = """You are a helpful, versatile AI assistant equipped with tools.
@@ -32,36 +32,36 @@ SYSTEM_PROMPT = """You are a helpful, versatile AI assistant equipped with tools
 - Provide clear and accurate responses based on observed tool results.
 """
 
-agent_persistence=MemoryPersistence()
-planner_persistence=MemoryPersistence()
+agent_persistence = MemoryPersistence()
+planner_persistence = MemoryPersistence()
 
 history = MessageHistory(
-    system_prompt=SYSTEM_PROMPT,
-    persistence=agent_persistence
+	system_prompt=SYSTEM_PROMPT,
+	persistence=agent_persistence
 )
 llm = ChatLLM()
 
 agent = Agent(
-    llm=llm,
-    history=history,
-    tools=registry,
-    stream=True,
+	llm=llm,
+	history=history,
+	tools=registry,
+	stream=True,
 )
 
-planner = Planner(llm=llm,persistence=planner_persistence)
+planner = Planner(llm=llm, persistence=planner_persistence)
 executor = Executor(agent=agent)
 
 
 def run_with_planning(user_goal: str):
-    plan = planner.create_plan(user_goal)
-    return executor.execute_plan(plan)
+	plan = planner.create_plan(user_goal)
+	return executor.execute_plan(plan)
 
 
 if __name__ == "__main__":
-    # Standard single query (no planning needed for simple questions)
-    agent.run(
-        "Do a search inside this directory. tell me what do you find. how many python files are there?"
-    )
+	# Standard single query (no planning needed for simple questions)
+	agent.run(
+		"Do a search inside this directory. tell me what do you find. how many python files are there?"
+	)
 
-    # Complex goal using Planning & Execution!
-    # run_with_planning("How many python files are here? consider any folders which might have python files too.")
+	# Complex goal using Planning & Execution!
+	# run_with_planning("How many python files are here? consider any folders which might have python files too.")

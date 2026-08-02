@@ -2,123 +2,124 @@ import json
 from agent.response import AgentResponse
 from agent.messages import MessageHistory
 from llm.chat import ChatLLM
-from typing import List
 from config import MAX_STEPS, TOOL_CALL_VISIBILITY
 import logging
+
+from tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
 
 class Agent:
 
-    def __init__(
-        self,
-        llm: ChatLLM,
-        history: MessageHistory,
-        tools: List = None,
-        stream: bool = False,
-    ):
-        self.llm = llm
-        self.history = history
-        self.tools = tools
-        self.stream = stream
+	def __init__(
+			self,
+			llm: ChatLLM,
+			history: MessageHistory,
+			tools: ToolRegistry = None,
+			stream: bool = False,
+	):
+		self.llm = llm
+		self.history = history
+		self.tools = tools
+		self.stream = stream
 
-    def run(self, query: str):
-        """Public API"""
-        if self.stream:
-            return self._run_stream(query)
-        else:
-            return self._run_sync(query)
+	def run(self, query: str):
+		"""Public API"""
+		if self.stream:
+			return self._run_stream(query)
+		else:
+			return self._run_sync(query)
 
-    def _run_sync(self, query: str):
-        self.history.add_user(query)
+	def _run_sync(self, query: str):
+		self.history.add_user(query)
 
-        steps = 0
-        while steps < MAX_STEPS:
-            steps += 1
-            response = self.chat()
+		steps = 0
+		while steps < MAX_STEPS:
+			steps += 1
+			response = self.chat()
 
-            if response.tool_calls:
-                logger.trace("Tool call found in agent response...")
-                if response.content:
-                    print(response.content)
-                    logger.info(f"Assistant: {response.content}")
-                self.handle_tool_calls(response)
-                continue
+			if response.tool_calls:
+				logger.trace("Tool call found in agent response...")
+				if response.content:
+					print(response.content)
+					logger.info(f"Assistant: {response.content}")
+				self.handle_tool_calls(response)
+				continue
 
-            self.history.add_assistant(response.content)
-            print(response.content)
-            logger.info(f"Assistant: {response.content}")
-            return response.content
+			self.history.add_assistant(response.content)
+			print(response.content)
+			logger.info(f"Assistant: {response.content}")
+			return response.content
 
-    def _run_stream(self, query: str):
-        self.history.add_user(query)
-        final_response = None
-        steps = 0
+	def _run_stream(self, query: str):
+		self.history.add_user(query)
+		final_response = None
+		steps = 0
 
-        while steps < MAX_STEPS:
-            steps += 1
-            schemas = self.tools.schemas()
-            final_response = None
+		while steps < MAX_STEPS:
+			steps += 1
+			schemas = self.tools.schemas()
+			final_response = None
 
-            intermediate_response = ""
-            for delta_text, response in self.llm.stream(
-                messages=self.history.get_messages_for_llm(), tools=schemas
-            ):
-                if delta_text:
-                    print(delta_text, end="", flush=True)
-                    intermediate_response += delta_text
-                if response is not None:
-                    final_response = response
+			intermediate_response = ""
+			for delta_text, response in self.llm.stream(
+					messages=self.history.get_messages_for_llm(), tools=schemas
+			):
+				if delta_text:
+					print(delta_text, end="", flush=True)
+					intermediate_response += delta_text
+				if response is not None:
+					final_response = response
 
-            if intermediate_response:
-                print()
-                logger.info(f"Assistance: {intermediate_response}")
-            if final_response and final_response.tool_calls:
-                self.handle_tool_calls(final_response)
-                continue
+			if intermediate_response:
+				print()
+				logger.info(f"Assistance: {intermediate_response}")
+			if final_response and final_response.tool_calls:
+				self.handle_tool_calls(final_response)
+				continue
 
-            if final_response:
-                self.history.add_assistant(final_response.content)
-            break
+			if final_response:
+				self.history.add_assistant(final_response.content)
+			break
 
-        logger.info(f"Assistant: {final_response.content}")
-        return final_response
+		logger.info(f"Assistant: {final_response.content}")
+		return final_response
 
-    def chat(self):
-        """LLM"""
-        schemas = self.tools.schemas()
-        logger.trace(f"Tool calls schema list: {schemas}")
-        return self.llm.complete(
-            messages=self.history.get_messages_for_llm(), tools=schemas, stream=False
-        )
+	def chat(self):
+		"""LLM"""
+		schemas = self.tools.schemas()
+		logger.trace(f"Tool calls schema list: {schemas}")
+		return self.llm.complete(
+			messages=self.history.get_messages_for_llm(), tools=schemas, stream=False
+		)
 
-    def handle_tool_calls(self, response: AgentResponse):
-        self.history.add_assistant_tool_call(
-            response.tool_calls, content=response.content
-        )
+	def handle_tool_calls(self, response: AgentResponse):
+		self.history.add_assistant_tool_call(
+			response.tool_calls, content=response.content
+		)
 
-        for tool_call in response.tool_calls:
-            result = self.call_tool(tool_call)
-            self.history.add_tool_result(tool_call.id, str(result))
+		for tool_call in response.tool_calls:
+			result = self.call_tool(tool_call)
+			self.history.add_tool_result(tool_call.id, str(result))
 
-    def call_tool(self, tool_call):
-        args = (
-            json.loads(tool_call.function.arguments)
-            if tool_call.function.arguments
-            else {}
-        )
+	def call_tool(self, tool_call):
+		args = (
+			json.loads(tool_call.function.arguments)
+			if tool_call.function.arguments
+			else {}
+		)
 
-        if TOOL_CALL_VISIBILITY:
-            print(
-                f"Calling tool: `{tool_call.function.name}` with arguments: {tool_call.function.arguments}"
-            )
-        logger.info(
-            f"Calling tool: `{tool_call.function.name}` with arguments: {tool_call.function.arguments}"
-        )
-        result = self.tools.execute(tool_call.function.name, **args)
+		if TOOL_CALL_VISIBILITY:
+			print(
+				f"Calling tool: `{tool_call.function.name}` with arguments: {tool_call.function.arguments}"
+			)
+		logger.info(
+			f"Calling tool: `{tool_call.function.name}` with arguments: {tool_call.function.arguments}"
+		)
+		result = self.tools.execute(tool_call.function.name, **args)
 
-        if TOOL_CALL_VISIBILITY:
-            print(f"Tool call result: {result}")
-        logger.info(f"Tool call result: {result}")
-        return result
+		if TOOL_CALL_VISIBILITY:
+			print(f"Tool call result: {result}")
+		logger.info(f"Tool call result: {result}")
+		return result

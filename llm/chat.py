@@ -4,139 +4,139 @@ from agent.response import AgentResponse, ToolCall, FunctionCall
 from agent.messages import MessageHistory
 import logging
 
-logger=logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class ChatLLM:
-    def __init__(self):
-        self.client = LLMClient()
-        self.model = MODEL
+	def __init__(self):
+		self.client = LLMClient()
+		self.model = MODEL
 
-    def complete(self, messages, tools=None, stream=False):
-        if isinstance(messages,MessageHistory):
-            messages=messages.history
-        
-        if stream:
-            return self.stream(messages, tools)
+	def complete(self, messages, tools=None, stream=False):
+		if isinstance(messages, MessageHistory):
+			messages = messages.history
 
-        return self._complete(messages, tools)
+		if stream:
+			return self.stream(messages, tools)
 
-    def _complete(self, messages, tools):
-        kwargs = {
-            "model": self.model,
-            "messages": messages,
-            "stream": False,
-            "reasoning_effort": REASONING_EFFORT
-        }
-        if tools:
-            kwargs["tools"] = tools
+		return self._complete(messages, tools)
 
-        response = self.client.chat.create(**kwargs)
-        logger.trace(f"Response from LLM: {response}")
+	def _complete(self, messages, tools):
+		kwargs = {
+			"model": self.model,
+			"messages": messages,
+			"stream": False,
+			"reasoning_effort": REASONING_EFFORT
+		}
+		if tools:
+			kwargs["tools"] = tools
 
-        return self._parse(response)
+		response = self.client.chat.create(**kwargs)
+		logger.trace(f"Response from LLM: {response}")
 
-    def stream(self, messages, tools=None):
-        kwargs = {
-            "model": self.model,
-            "messages": messages,
-            "stream": True,
-            "reasoning_effort": REASONING_EFFORT
-        }
-        if tools:
-            kwargs["tools"] = tools
+		return self._parse(response)
 
-        raw_stream = self.client.chat.create(**kwargs)
-        logger.debug(f"Starting llm stream...")
-        content_parts = []
-        tool_calls_map = {}
-        finish_reason = None
+	def stream(self, messages, tools=None):
+		kwargs = {
+			"model": self.model,
+			"messages": messages,
+			"stream": True,
+			"reasoning_effort": REASONING_EFFORT
+		}
+		if tools:
+			kwargs["tools"] = tools
 
-        for chunk in raw_stream:
-            logger.trace(f"### Chunk: {chunk}")
-            if not chunk.choices:
-                continue
+		raw_stream = self.client.chat.create(**kwargs)
+		logger.debug(f"Starting llm stream...")
+		content_parts = []
+		tool_calls_map = {}
+		finish_reason = None
 
-            delta = chunk.choices[0].delta
-            logger.trace(f"Chunk delta: {delta}")
+		for chunk in raw_stream:
+			logger.trace(f"### Chunk: {chunk}")
+			if not chunk.choices:
+				continue
 
-            delta_content = None
-            if delta.content:
-                delta_content = delta.content
-                content_parts.append(delta_content)
+			delta = chunk.choices[0].delta
+			logger.trace(f"Chunk delta: {delta}")
 
-            if delta.tool_calls:
-                logger.trace(f"Chunk delta tool call: {delta.tool_calls}")
-                for tc in delta.tool_calls:
-                    idx = tc.index
-                    if idx not in tool_calls_map:
-                        tool_calls_map[idx] = {
-                            "id": tc.id,
-                            "name": tc.function.name,
-                            "arguments": "",
-                        }
-                    if tc.id:
-                        tool_calls_map[idx]["id"] = tc.id
-                    if tc.function:
-                        if tc.function.name:
-                            tool_calls_map[idx]["name"] = tc.function.name
-                        if tc.function.arguments:
-                            tool_calls_map[idx]["arguments"] += tc.function.arguments
+			delta_content = None
+			if delta.content:
+				delta_content = delta.content
+				content_parts.append(delta_content)
 
-            if chunk.choices[0].finish_reason:
-                finish_reason = chunk.choices[0].finish_reason
+			if delta.tool_calls:
+				logger.trace(f"Chunk delta tool call: {delta.tool_calls}")
+				for tc in delta.tool_calls:
+					idx = tc.index
+					if idx not in tool_calls_map:
+						tool_calls_map[idx] = {
+							"id": tc.id,
+							"name": tc.function.name,
+							"arguments": "",
+						}
+					if tc.id:
+						tool_calls_map[idx]["id"] = tc.id
+					if tc.function:
+						if tc.function.name:
+							tool_calls_map[idx]["name"] = tc.function.name
+						if tc.function.arguments:
+							tool_calls_map[idx]["arguments"] += tc.function.arguments
 
-            logger.trace(f"Yielding delta content: {delta_content}")
-            yield (delta_content, None)
+			if chunk.choices[0].finish_reason:
+				finish_reason = chunk.choices[0].finish_reason
 
-        reconstructed_tool_calls = []
-        logger.trace(f"Tool calls map: {tool_calls_map}")
-        for idx in sorted(tool_calls_map.keys()):
-            tc_data = tool_calls_map[idx]
-            reconstructed_tool_calls.append(
-                ToolCall(
-                    id=tc_data["id"],
-                    function=FunctionCall(
-                        name=tc_data["name"],
-                        arguments=tc_data["arguments"],
-                    ),
-                )
-            )
+			logger.trace(f"Yielding delta content: {delta_content}")
+			yield delta_content, None
 
-        logger.trace(f"Stream completed. Full content: {''.join(content_parts)}")
-        agentResponse = AgentResponse(
-            content="".join(content_parts),
-            tool_calls=reconstructed_tool_calls,
-            finish_reason=finish_reason,
-            raw=raw_stream,
-        )
+		reconstructed_tool_calls = []
+		logger.trace(f"Tool calls map: {tool_calls_map}")
+		for idx in sorted(tool_calls_map.keys()):
+			tc_data = tool_calls_map[idx]
+			reconstructed_tool_calls.append(
+				ToolCall(
+					id=tc_data["id"],
+					function=FunctionCall(
+						name=tc_data["name"],
+						arguments=tc_data["arguments"],
+					),
+				)
+			)
 
-        yield (None, agentResponse)
+		logger.trace(f"Stream completed. Full content: {''.join(content_parts)}")
+		agent_response = AgentResponse(
+			content="".join(content_parts),
+			tool_calls=reconstructed_tool_calls,
+			finish_reason=finish_reason,
+			raw=raw_stream,
+		)
 
-    def _parse(self, response):
-        message = response.choices[0].message
-        logger.trace(f"Parsed message object: {message}")
+		yield None, agent_response
 
-        tool_calls = []
-        if message.tool_calls:
-            logger.trace(f"Found tool calls...")
-            for tc in message.tool_calls:
-                logger.trace(f"### Tool call ### ")
-                logger.trace(tc)
-                fn_name = tc.function.name
-                fn_args = tc.function.arguments
-                tool_calls.append(
-                    ToolCall(
-                        id=tc.id,
-                        function=FunctionCall(name=fn_name, arguments=fn_args),
-                    )
-                )
+	def _parse(self, response):
+		message = response.choices[0].message
+		logger.trace(f"Parsed message object: {message}")
 
-        agentResponse=AgentResponse(
-            content=message.content,
-            tool_calls=tool_calls,
-            finish_reason=response.choices[0].finish_reason,
-            raw=response,
-        )
-        logger.trace(f"Created agent response: {agentResponse}")
-        return agentResponse
+		tool_calls = []
+		if message.tool_calls:
+			logger.trace(f"Found tool calls...")
+			for tc in message.tool_calls:
+				logger.trace(f"### Tool call ### ")
+				logger.trace(tc)
+				fn_name = tc.function.name
+				fn_args = tc.function.arguments
+				tool_calls.append(
+					ToolCall(
+						id=tc.id,
+						function=FunctionCall(name=fn_name, arguments=fn_args),
+					)
+				)
+
+		agent_response = AgentResponse(
+			content=message.content,
+			tool_calls=tool_calls,
+			finish_reason=response.choices[0].finish_reason,
+			raw=response,
+		)
+		logger.trace(f"Created agent response: {agent_response}")
+		return agent_response

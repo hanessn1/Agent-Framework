@@ -1,4 +1,11 @@
+# Python cache
 __pycache__
+
+# IDE
 .vscode
+.idea/
+
+# Logs
 *.log
+
 storage
