@@ -1,6 +1,8 @@
 from llm.chat import ChatLLM
 from planner.plan import Plan, TaskStep
 from agent.messages import MessageHistory
+from agent.persistence.base import BasePersistence
+from agent.persistence.memory_storage import MemoryPersistence
 import logging
 import json
 
@@ -8,8 +10,9 @@ logger = logging.getLogger(__name__)
 
 
 class Planner:
-    def __init__(self, llm: ChatLLM):
+    def __init__(self, llm: ChatLLM, persistence: BasePersistence = None):
         self.llm = llm
+        self.persistence = persistence or MemoryPersistence()
 
     def create_plan(self, goal: str) -> Plan:
         logger.debug(f"Generating plan for goal: `{goal}`")
@@ -19,7 +22,9 @@ class Planner:
             "Your job is to deconstruct user goals into a logical sequence of step-by-step instructions. "
             "Respond ONLY in valid JSON matching the requested schema."
         )
-        history=MessageHistory(system_prompt=system_prompt)
+        history = MessageHistory(
+            system_prompt=system_prompt, persistence=self.persistence
+        )
 
         user_prompt = f"""Deconstruct the following goal into a sequence of steps.
 
@@ -35,11 +40,8 @@ Respond ONLY with a valid JSON object matching this schema:
 }}"""
 
         history.add_user(user_prompt)
-
-        response = self.llm.complete(
-            messages=history,
-            stream=False
-        )
+        response = self.llm.complete(messages=history, stream=False)
+        history.add_assistant(response.content)
 
         try:
             content = response.content.strip()
@@ -57,12 +59,18 @@ Respond ONLY with a valid JSON object matching this schema:
 
             # Fallback when llm creates 0 steps
             if len(steps) == 0:
-                logger.warning("Planner returned 0 steps. Using default fallback steps.")
+                logger.warning(
+                    "Planner returned 0 steps. Using default fallback steps."
+                )
                 steps = [
-                    TaskStep(id=1, description=f"Gather information to achieve: {goal}"),
-                    TaskStep(id=2, description="Analyze results and provide final answer."),
+                    TaskStep(
+                        id=1, description=f"Gather information to achieve: {goal}"
+                    ),
+                    TaskStep(
+                        id=2, description="Analyze results and provide final answer."
+                    ),
                 ]
-            
+
             plan = Plan(goal=goal, steps=steps)
             logger.debug(plan)
             logger.info(f"Plan created with {len(steps)} step(s).")

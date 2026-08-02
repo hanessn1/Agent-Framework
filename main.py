@@ -9,6 +9,7 @@ from tools.builtin.time import TimeTool
 from tools.builtin.list_files import ListFilesTool
 from tools.builtin.read_file import ReadFileTool
 from tools.builtin.get_pwd import PwdTool
+from agent.persistence import MemoryPersistence
 from planner.planner import Planner
 from planner.executor import Executor
 from logger import setup_logging
@@ -31,7 +32,13 @@ SYSTEM_PROMPT = """You are a helpful, versatile AI assistant equipped with tools
 - Provide clear and accurate responses based on observed tool results.
 """
 
-history = MessageHistory(SYSTEM_PROMPT)
+agent_persistence=MemoryPersistence()
+planner_persistence=MemoryPersistence()
+
+history = MessageHistory(
+    system_prompt=SYSTEM_PROMPT,
+    persistence=agent_persistence
+)
 llm = ChatLLM()
 
 agent = Agent(
@@ -41,15 +48,12 @@ agent = Agent(
     stream=True,
 )
 
-planner = Planner(llm=llm)
+planner = Planner(llm=llm,persistence=planner_persistence)
 executor = Executor(agent=agent)
 
 
 def run_with_planning(user_goal: str):
-    # Generate plan
     plan = planner.create_plan(user_goal)
-
-    # Execute plan
     return executor.execute_plan(plan)
 
 
