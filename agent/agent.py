@@ -74,7 +74,7 @@ class Agent:
 
 			if intermediate_response:
 				print()
-				logger.info(f"Assistance: {intermediate_response}")
+				logger.info(f"Assistant: {intermediate_response}")
 			if final_response and final_response.tool_calls:
 				self.handle_tool_calls(final_response)
 				continue
