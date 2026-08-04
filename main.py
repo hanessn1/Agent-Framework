@@ -1,6 +1,9 @@
+import sys
+
 from agent.messages import MessageHistory
 from agent.agent import Agent
 from llm.chat import ChatLLM
+from mcp.adapter import load_mcp_tools
 from tools.registry import ToolRegistry
 from tools.builtin.add import AddTool
 from tools.builtin.multiply import MultiplyTool
@@ -16,14 +19,23 @@ from logger import setup_logging
 
 setup_logging()
 
-registry = ToolRegistry([
+# Local domain tools
+local_tools = [
+	TimeTool(),
 	AddTool(),
 	MultiplyTool(),
 	SubtractTool(),
-	TimeTool(),
-	PwdTool(),
 	ListFilesTool(),
-	ReadFileTool()
+	ReadFileTool(),
+	PwdTool()
+]
+
+# External MCP tools
+external_mcp_tools = load_mcp_tools(sys.executable, ["test_mcp_server.py"])
+
+registry = ToolRegistry([
+	*local_tools,
+	*external_mcp_tools,
 ])
 
 SYSTEM_PROMPT = """You are a helpful, versatile AI assistant equipped with tools.
@@ -59,9 +71,12 @@ def run_with_planning(user_goal: str):
 
 if __name__ == "__main__":
 	# Standard single query (no planning needed for simple questions)
-	agent.run(
-		"Do a search inside this directory. tell me what do you find. how many python files are there?"
-	)
+	# agent.run(
+	# 	"Do a search inside this directory. tell me what do you find. how many python files are there?"
+	# )
 
 	# Complex goal using Planning & Execution!
 	# run_with_planning("How many python files are here? consider any folders which might have python files too.")
+
+	# test invoking MCP tool
+	agent.run("Use the uppercase_text tool to convert 'hello world from mcp' to uppercase.")
