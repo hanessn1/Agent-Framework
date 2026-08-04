@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, List
 
-from mcp.client import MCPStdioClient
+from mcp_client.client import MCPStdioClient
 from tools.base import BaseTool
 
 logger = logging.getLogger(__name__)

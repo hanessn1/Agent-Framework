@@ -3,15 +3,8 @@ import sys
 from agent.messages import MessageHistory
 from agent.agent import Agent
 from llm.chat import ChatLLM
-from mcp.adapter import load_mcp_tools
+from mcp_client.adapter import load_mcp_tools
 from tools.registry import ToolRegistry
-from tools.builtin.add import AddTool
-from tools.builtin.multiply import MultiplyTool
-from tools.builtin.subtract import SubtractTool
-from tools.builtin.time import TimeTool
-from tools.builtin.list_files import ListFilesTool
-from tools.builtin.read_file import ReadFileTool
-from tools.builtin.get_pwd import PwdTool
 from agent.persistence import MemoryPersistence
 from planner.planner import Planner
 from planner.executor import Executor
@@ -19,22 +12,18 @@ from logger import setup_logging
 
 setup_logging()
 
-# Local domain tools
-local_tools = [
-	TimeTool(),
-	AddTool(),
-	MultiplyTool(),
-	SubtractTool(),
-	ListFilesTool(),
-	ReadFileTool(),
-	PwdTool()
-]
+# Load tools from all domain MCP servers
+math_tools = load_mcp_tools(sys.executable, ["mcp_servers/math_server.py"])
+fs_tools = load_mcp_tools(sys.executable, ["mcp_servers/filesystem_server.py"])
+system_tools = load_mcp_tools(sys.executable, ["mcp_servers/system_server.py"])
 
 # External MCP tools
-external_mcp_tools = load_mcp_tools(sys.executable, ["test_mcp_server.py"])
+external_mcp_tools = load_mcp_tools(sys.executable, ["mcp_servers/test_mcp_server.py"])
 
 registry = ToolRegistry([
-	*local_tools,
+	*math_tools,
+	*fs_tools,
+	*system_tools,
 	*external_mcp_tools,
 ])
 
@@ -71,12 +60,12 @@ def run_with_planning(user_goal: str):
 
 if __name__ == "__main__":
 	# Standard single query (no planning needed for simple questions)
-	# agent.run(
-	# 	"Do a search inside this directory. tell me what do you find. how many python files are there?"
-	# )
+	agent.run(
+		"Do a search inside this directory. tell me what do you find. how many python files are there?"
+	)
 
 	# Complex goal using Planning & Execution!
 	# run_with_planning("How many python files are here? consider any folders which might have python files too.")
 
 	# test invoking MCP tool
-	agent.run("Use the uppercase_text tool to convert 'hello world from mcp' to uppercase.")
+	# agent.run("Use the uppercase_text tool to convert 'hello world from mcp_client' to uppercase.")
