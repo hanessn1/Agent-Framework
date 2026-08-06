@@ -3,7 +3,7 @@ import sys
 from agent.messages import MessageHistory
 from agent.agent import Agent
 from llm.chat import ChatLLM
-from mcp_client.adapter import load_mcp_tools
+from mcp_client.adapter import MCPServerHandle
 from tools.registry import ToolRegistry
 from agent.persistence import MemoryPersistence
 from planner.planner import Planner
@@ -12,20 +12,23 @@ from logger import setup_logging
 
 setup_logging()
 
-# Load tools from all domain MCP servers
-math_tools = load_mcp_tools(sys.executable, ["mcp_servers/math_server.py"])
-fs_tools = load_mcp_tools(sys.executable, ["mcp_servers/filesystem_server.py"])
-system_tools = load_mcp_tools(sys.executable, ["mcp_servers/system_server.py"])
+# Connect to all domain MCP Servers
+math_server = MCPServerHandle(sys.executable, ["mcp_servers/math_server.py"])
+fs_server = MCPServerHandle(sys.executable, ["mcp_servers/filesystem_server.py"])
+sys_server = MCPServerHandle(sys.executable, ["mcp_servers/system_server.py"])
 
 # External MCP tools
-external_mcp_tools = load_mcp_tools(sys.executable, ["mcp_servers/test_mcp_server.py"])
+external_mcp_server = MCPServerHandle(sys.executable, ["mcp_servers/test_mcp_server.py"])
 
 registry = ToolRegistry([
-	*math_tools,
-	*fs_tools,
-	*system_tools,
-	*external_mcp_tools,
+	*math_server.tools,
+	*fs_server.tools,
+	*sys_server.tools,
+	*external_mcp_server.tools,
 ])
+
+status_resource = math_server.read_resource("info://server_status")
+tutor_prompt = math_server.get_prompt("math_tutor_prompt", {"topic": "Algebra"})
 
 SYSTEM_PROMPT = """You are a helpful, versatile AI assistant equipped with tools.
 - When asked a question, always inspect and verify facts using your available tools.

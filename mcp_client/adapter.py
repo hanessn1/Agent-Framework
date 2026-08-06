@@ -23,11 +23,28 @@ class MCPToolAdapter(BaseTool):
 		return self.mcp_client.call_tool(self.name, kwargs)
 
 
-def load_mcp_tools(command: str, args: List[str] = None) -> List[BaseTool]:
-	"""Helper function: connects to an MCP Server, performs handshake, and returns BaseTool list."""
-	client = MCPStdioClient(command, args or [])
-	client.initialize()
+class MCPServerHandle:
+	"""
+    Provides direct access to tools (as BaseTools), resources, and prompts.
+    """
 
-	raw_tools = client.list_tools()
-	logger.info(f"Loaded {len(raw_tools)} tool(s) from MCP server.")
-	return [MCPToolAdapter(client, tool) for tool in raw_tools]
+	def __init__(self, command: str, args: List[str] = None):
+		self.client = MCPStdioClient(command, args or [])
+		self.client.initialize()
+
+		# load and adapt all tools as BaseTools
+		raw_tools = self.client.list_tools()
+		self.tools: List[BaseTool] = [MCPToolAdapter(self.client, t) for t in raw_tools]
+		logger.info(f"Loaded {len(self.tools)} tool(s) from MCP server '{args}'.")
+
+	def read_resource(self, uri: str) -> str:
+		"""Fetch a resource from this MCP server."""
+		return self.client.read_resource(uri)
+
+	def get_prompt(self, name: str, arguments: Dict[str, Any] = None) -> str:
+		"""Fetch a prompt template from this MCP server."""
+		return self.client.get_prompt(name, arguments)
+
+	def close(self):
+		"""Shutdown the underlying process."""
+		self.client.close()

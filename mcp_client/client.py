@@ -75,6 +75,37 @@ class MCPStdioClient:
 		text_outputs = [item.get("text", "") for item in content_list if item.get("type") == "text"]
 		return "\n".join(text_outputs) if text_outputs else str(result)
 
+	def list_resources(self) -> List[Dict[str, Any]]:
+		"""Fetch all resources exposed by the server."""
+		response = self.send_request("resources/list")
+		return response.get("result", {}).get("resources", [])
+
+	def read_resource(self, uri: str) -> str:
+		"""Read a resource by its URI."""
+		response = self.send_request("resources/read", {"uri": uri})
+		contents = response.get("result", {}).get("contents", [])
+		text_outputs = [c.get("text", "") for c in contents if c.get("text")]
+		return "\n".join(text_outputs)
+
+	def list_prompts(self) -> List[Dict[str, Any]]:
+		"""Fetch all prompt templates exposed by the server."""
+		response = self.send_request("prompts/list")
+		return response.get("result", {}).get("prompts", [])
+
+	def get_prompt(self, name: str, arguments: Dict[str, Any] = None) -> str:
+		"""Get a formatted prompt template by name."""
+		response = self.send_request("prompts/get", {"name": name, "arguments": arguments or {}})
+		messages = response.get("result", {}).get("messages", [])
+		
+		prompt_texts = []
+		for msg in messages:
+			content = msg.get("content", {})
+			if isinstance(content, dict) and content.get("text"):
+				prompt_texts.append(content["text"])
+			elif isinstance(content, str):
+				prompt_texts.append(content)
+		return "\n".join(prompt_texts)
+
 	def close(self):
 		if self.process:
 			self.process.terminate()
